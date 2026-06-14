@@ -23,6 +23,12 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
 
   uforwarder:
     image: uforwarder
