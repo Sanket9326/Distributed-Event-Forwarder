@@ -23,5 +23,10 @@ namespace UForwarderConsumer.Dtos
         /// Gets or sets the payload of the message.
         /// </summary>
         public required string Payload { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of times the message has been retried.
+        /// </summary>
+        public required int RetryCount { get; set; }
     }
 }

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UForwarderConsumer.Dtos;
 
-namespace UForwarderConsumer.Services.Implementations
+namespace UForwarderConsumer.Services.MessageProcessingService.Implementations
 {
     public class MessageProcessor : IMessageProcessor
     {
@@ -32,8 +32,8 @@ namespace UForwarderConsumer.Services.Implementations
             }
             catch (Exception ex)
             {
-                // Log the exception or handle it as needed
                 logger.LogError(ex, "Error processing message");
+                throw;
             }
         }
     }

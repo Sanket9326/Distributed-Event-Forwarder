@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UForwarderConsumer.Dtos;
 
-namespace UForwarderConsumer.Services
+namespace UForwarderConsumer.Services.MessageProcessingService
 {
     public interface IMessageProcessor
     {
