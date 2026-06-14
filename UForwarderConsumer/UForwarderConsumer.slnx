@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="RetryWorker/RetryWorker.csproj" Id="792068d8-b5f1-41b5-8e18-627419638121" />
   <Project Path="UForwarderConsumer/UForwarderConsumer.csproj" />
 </Solution>

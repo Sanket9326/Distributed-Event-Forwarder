@@ -1,12 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace UForwarderConsumer.Dtos
+﻿namespace RetryWorker.Dtos
 {
-    /// <summary>
-    /// Represents a message to be forwarded, containing an optional message ID, event type, and payload.
-    /// </summary>
     public class ForwarderMessage
     {
         /// <summary>

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace UForwarderConsumer.Services.Implementations
+namespace UForwarderConsumer.Services.MessageProcessingService.Implementations
 {
     public class RoutineEngine:IRoutineEngine
     {

@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-UForwarderConsumer-0cb22071-c184-4ac3-9015-cddcee4bd511</UserSecretsId>
+    <UserSecretsId>dotnet-RetryWorker-cd32ac4c-ab41-4fee-8054-69cc06828501</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
 

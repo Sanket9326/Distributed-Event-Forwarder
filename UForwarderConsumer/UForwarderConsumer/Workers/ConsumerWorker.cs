@@ -1,21 +1,28 @@
 using Confluent.Kafka;
 using System.Text.Json;
 using UForwarderConsumer.Dtos;
-using UForwarderConsumer.Services;
+using UForwarderConsumer.Services.MessageProcessingService;
+using UForwarderConsumer.Services.RetryService;
 
-namespace UForwarderConsumer
+namespace UForwarderConsumer.Workers
 {
-    public class Worker : BackgroundService
+    public class ConsumerWorker : BackgroundService
     {
-        private readonly ILogger<Worker> _logger;
+        private readonly ILogger<ConsumerWorker> _logger;
         private readonly IConfiguration _configuration;
         private readonly IMessageProcessor messageProcessor;
+        private readonly int MAX_RETRY_COUNT = 4;
+        private readonly IRetryService retryService;
 
-        public Worker(ILogger<Worker> logger, IConfiguration configuration, IMessageProcessor messageProcessor)
+        public ConsumerWorker(ILogger<ConsumerWorker> logger,
+            IConfiguration configuration,
+            IMessageProcessor messageProcessor,
+            IRetryService retryService)
         {
             _logger = logger;
             _configuration = configuration;
             this.messageProcessor = messageProcessor;
+            this.retryService = retryService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -48,12 +55,28 @@ namespace UForwarderConsumer
 
                     if (deserializedMessage != null)
                     {
-                        await messageProcessor.ProcessMessage(deserializedMessage);
+                        try
+                        {
+                            await messageProcessor.ProcessMessage(deserializedMessage);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error processing message: {Message}", result.Message.Value);
+                            if (deserializedMessage.RetryCount < MAX_RETRY_COUNT)
+                            {
+                                await this.retryService.AddForRetry(deserializedMessage);
+                                _logger.LogInformation("Message will be retried. Current retry count: {RetryCount}", deserializedMessage.RetryCount);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Max retry count reached for message: {Message}. It will not be retried.", result.Message.Value);
+                            }
+                        }
+
+                        _logger.LogInformation("Consumed message: {Message}", result.Message.Value);
+
+                        await Task.Delay(1000, stoppingToken);
                     }
-
-                    _logger.LogInformation("Consumed message: {Message}", result.Message.Value);
-
-                    await Task.Delay(1000, stoppingToken);
                 }
             }
             catch (Exception ex)

@@ -24,11 +24,41 @@ services:
 
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+
   uforwarder:
-    image: uforwarder
+    build:
+      context: ./UForwarderConsumer/UForwarderConsumer
+      dockerfile: Dockerfile
+
+    container_name: uforwarder
+
     depends_on:
       - kafka
+      - redis
+
     environment:
       Kafka__BootstrapServers: kafka:29092
       Kafka__Topic: orders.v1
       Kafka__GroupId: uforwarder-group
+      Redis__ConnectionString: redis:6379
+
+  retryworker:
+    build:
+      context: ./UForwarderConsumer/RetryWorker
+      dockerfile: Dockerfile
+
+    container_name: retryworker
+
+    depends_on:
+      - kafka
+      - redis
+
+    environment:
+      Kafka__BootstrapServers: kafka:29092
+      Kafka__Topic: orders.v1
+      Redis__ConnectionString: redis:6379
