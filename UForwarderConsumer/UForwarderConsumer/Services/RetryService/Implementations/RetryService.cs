@@ -59,9 +59,9 @@ namespace UForwarderConsumer.Services.RetryService.Implementations
                     case 1:
                         return currTime.AddMinutes(1);
                     case 2:
-                        return currTime.AddMinutes(5);
+                        return currTime.AddMinutes(1);
                     case 3:
-                        return currTime.AddMinutes(15);
+                        return currTime.AddMinutes(1);
                     default:
                         throw new InvalidOperationException("Maximum retry attempts exceeded.");
                 }

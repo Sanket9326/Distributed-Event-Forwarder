@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using System.Text.Json;
 using UForwarderConsumer.Dtos;
+using UForwarderConsumer.Services.DlqService;
 using UForwarderConsumer.Services.MessageProcessingService;
 using UForwarderConsumer.Services.RetryService;
 
@@ -13,16 +14,19 @@ namespace UForwarderConsumer.Workers
         private readonly IMessageProcessor messageProcessor;
         private readonly int MAX_RETRY_COUNT = 4;
         private readonly IRetryService retryService;
+        private readonly IDlqService dlqService;
 
         public ConsumerWorker(ILogger<ConsumerWorker> logger,
             IConfiguration configuration,
             IMessageProcessor messageProcessor,
-            IRetryService retryService)
+            IRetryService retryService,
+            IDlqService dlqService)
         {
             _logger = logger;
             _configuration = configuration;
             this.messageProcessor = messageProcessor;
             this.retryService = retryService;
+            this.dlqService = dlqService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -58,6 +62,8 @@ namespace UForwarderConsumer.Workers
                         try
                         {
                             await messageProcessor.ProcessMessage(deserializedMessage);
+
+                            consumer.Commit(result);
                         }
                         catch (Exception ex)
                         {
@@ -69,8 +75,11 @@ namespace UForwarderConsumer.Workers
                             }
                             else
                             {
-                                _logger.LogWarning("Max retry count reached for message: {Message}. It will not be retried.", result.Message.Value);
+                                _logger.LogWarning("Max retry count reached for message: {Message}. It will be added to DLQ.", result.Message.Value);
+                                await this.dlqService.AddToDLq(deserializedMessage);
                             }
+
+                            consumer.Commit(result);
                         }
 
                         _logger.LogInformation("Consumed message: {Message}", result.Message.Value);
