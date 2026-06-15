@@ -44,6 +44,7 @@ services:
     environment:
       Kafka__BootstrapServers: kafka:29092
       Kafka__Topic: orders.v1
+      Kafka__DlqTopic: uforwarder.dlq
       Kafka__GroupId: uforwarder-group
       Redis__ConnectionString: redis:6379
 
@@ -61,4 +62,5 @@ services:
     environment:
       Kafka__BootstrapServers: kafka:29092
       Kafka__Topic: orders.v1
+      Kafka__DlqTopic: uforwarder.dlq
       Redis__ConnectionString: redis:6379
