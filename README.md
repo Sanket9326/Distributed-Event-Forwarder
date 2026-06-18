@@ -1,6 +1,6 @@
 # 🚀 Distributed Event Forwarder
 
-A scalable distributed event forwarding platform inspired by modern asynchronous architectures. The system consumes events from Kafka, applies routing logic, and forwards messages to downstream consumers while supporting horizontal scaling and fault tolerance.
+A scalable and fault-tolerant distributed event processing platform inspired by modern asynchronous architectures. The system consumes events from Kafka, applies routing logic, and reliably forwards messages to downstream systems while supporting horizontal scaling, retries, dead-letter queues, idempotency, and distributed locking.
 
 Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
 
@@ -10,14 +10,18 @@ Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
 
 * Event-driven architecture
 * Kafka-based asynchronous messaging
-* Message routing engine
 * Background worker consumers
+* Message routing engine
 * Horizontal scalability
 * Fault-tolerant processing
+* Retry mechanism with delayed retries
+* Dead Letter Queue (DLQ)
+* Redis-based distributed locking
+* Idempotent message processing
+* Duplicate message prevention
 * Dockerized deployment
 * Extensible message pipeline
 * Clean separation of concerns
-* Producer-consumer architecture
 
 ---
 
@@ -31,7 +35,7 @@ Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
                          v
                 +----------------+
                 |     Kafka       |
-                |     Topic       |
+                |   Main Topic    |
                 +----------------+
                          |
                          v
@@ -43,32 +47,64 @@ Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
              +-----------+-----------+
              |                       |
              v                       v
-      +-------------+         +-------------+
-      | Routing     |         | Message     |
-      | Engine      |         | Processor   |
-      +-------------+         +-------------+
+     +----------------+      +----------------+
+     | Distributed    |      | Idempotency    |
+     | Lock (Redis)   |      | Check (Redis)  |
+     +----------------+      +----------------+
              |
              v
       +------------------+
-      | Downstream        |
-      | Consumers         |
+      | Message Processor|
       +------------------+
+             |
+      +------+------+
+      |             |
+      v             v
+ Success          Failure
+      |             |
+ Commit Offset      |
+                    v
+           +----------------+
+           | Retry Queue     |
+           | (Redis Sorted   |
+           | Set)            |
+           +----------------+
+                    |
+                    v
+           +----------------+
+           | Retry Worker    |
+           +----------------+
+                    |
+                    v
+                Kafka Topic
+                    |
+                    v
+            Max Retries Exceeded
+                    |
+                    v
+            +----------------+
+            | Dead Letter     |
+            | Queue (DLQ)     |
+            +----------------+
 ```
 
 ---
 
 ## 🛠 Tech Stack
 
-| Component         | Technology                |
-| ----------------- | ------------------------- |
-| Language          | C#                        |
-| Framework         | .NET                      |
-| Messaging         | Apache Kafka              |
-| Cache             | Redis                     |
-| Containerization  | Docker                    |
-| Worker Processing | Background Services       |
-| Serialization     | System.Text.Json          |
-| Architecture      | Event-Driven Architecture |
+| Component            | Technology                |
+| -------------------- | ------------------------- |
+| Language             | C#                        |
+| Framework            | .NET                      |
+| Messaging            | Apache Kafka              |
+| Cache & Coordination | Redis                     |
+| Containerization     | Docker                    |
+| Worker Processing    | Background Services       |
+| Serialization        | System.Text.Json          |
+| Architecture         | Event-Driven Architecture |
+| Retry Scheduling     | Redis Sorted Sets         |
+| Distributed Locking  | Redis                     |
+| Dead Letter Queue    | Kafka                     |
 
 ---
 
@@ -82,7 +118,13 @@ Distributed-Event-Forwarder
 ├── Services/
 │   ├── Implementations/
 │   ├── IMessageProcessor.cs
-│   ├── IRouteEngine.cs
+│   ├── IRetryService.cs
+│   ├── IDlqService.cs
+│   ├── IDistributedLockService.cs
+│   ├── IIdempotencyService.cs
+│
+├── ConsumerWorker/
+├── RetryWorker/
 │
 ├── Program.cs
 ├── Worker.cs
@@ -95,11 +137,15 @@ Distributed-Event-Forwarder
 ## ⚙️ How It Works
 
 1. Producers publish events to Kafka topics.
-2. Background workers consume events.
-3. Messages are deserialized.
-4. Routing logic determines where events should be forwarded.
-5. Message processors execute forwarding operations.
-6. Multiple consumers can be scaled horizontally.
+2. Consumer workers read events from Kafka.
+3. A Redis-based distributed lock ensures only one consumer processes a message.
+4. Idempotency checks prevent duplicate processing.
+5. Messages are deserialized and routed.
+6. Downstream forwarding operations are executed.
+7. On success, offsets are committed and message state is marked completed.
+8. On failure, messages are scheduled for retry using Redis Sorted Sets.
+9. Retry workers re-publish failed messages to Kafka when their retry time arrives.
+10. Messages exceeding the maximum retry count are sent to the Dead Letter Queue (DLQ).
 
 ---
 
@@ -115,6 +161,26 @@ Distributed-Event-Forwarder
   }
 }
 ```
+
+---
+
+## Reliability Mechanisms
+
+### Retry Processing
+
+Failed messages are not lost. They are stored in Redis with a scheduled retry time and later re-published by a dedicated Retry Worker.
+
+### Dead Letter Queue (DLQ)
+
+Messages that exceed the maximum retry count are sent to a Kafka DLQ topic for investigation and replay.
+
+### Distributed Locking
+
+Redis locks prevent multiple consumers from processing the same message simultaneously in a scaled environment.
+
+### Idempotency
+
+Message states are stored in Redis to ensure duplicate messages are ignored and processing occurs exactly once from the application's perspective.
 
 ---
 
@@ -158,16 +224,16 @@ docker run distributed-event-forwarder
 
 ## Future Enhancements
 
-* Retry policies
-* Dead Letter Queue (DLQ)
-* Redis-based deduplication
 * Metrics and monitoring
 * Prometheus integration
 * OpenTelemetry tracing
 * Multiple Kafka topics
 * Dynamic routing rules
-* Exactly-once processing
 * Dashboard and observability
+* Exponential backoff policies
+* Batch processing
+* Circuit breaker support
+* Event replay capability
 
 ---
 
@@ -180,12 +246,19 @@ docker run distributed-event-forwarder
 * Extensibility
 * High Throughput
 * Fault Tolerance
+* At-Least-Once Delivery
+* Idempotent Processing
 
 ---
 
 ## Inspiration
 
-This project draws inspiration from modern event-driven systems and distributed messaging architectures used by companies such as Uber, Netflix, LinkedIn, and Amazon.
+This project draws inspiration from modern event-driven systems and distributed messaging architectures used by companies such as:
+
+* Uber
+* Netflix
+* LinkedIn
+* Amazon
 
 ---
 
