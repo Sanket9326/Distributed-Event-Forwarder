@@ -2,6 +2,8 @@ using Confluent.Kafka;
 using StackExchange.Redis;
 using UForwarderConsumer.Services.DlqService;
 using UForwarderConsumer.Services.DlqService.Implementations;
+using UForwarderConsumer.Services.IdempotencyService;
+using UForwarderConsumer.Services.IdempotencyService.Implementations;
 using UForwarderConsumer.Services.MessageProcessingService;
 using UForwarderConsumer.Services.MessageProcessingService.Implementations;
 using UForwarderConsumer.Services.RetryService;
@@ -33,6 +35,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 });
 builder.Services.AddSingleton<IRetryService, RetryService>();
 builder.Services.AddSingleton<IDlqService, DlqService>();
+builder.Services.AddSingleton<IIdempotencyService, IdempotencyService>();
 
 var host = builder.Build();
 host.Run();

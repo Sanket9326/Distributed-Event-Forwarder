@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using System.Text.Json;
 using UForwarderConsumer.Dtos;
 using UForwarderConsumer.Services.DlqService;
+using UForwarderConsumer.Services.IdempotencyService;
 using UForwarderConsumer.Services.MessageProcessingService;
 using UForwarderConsumer.Services.RetryService;
 
@@ -15,18 +16,21 @@ namespace UForwarderConsumer.Workers
         private readonly int MAX_RETRY_COUNT = 4;
         private readonly IRetryService retryService;
         private readonly IDlqService dlqService;
+        private readonly IIdempotencyService idempotencyService;
 
         public ConsumerWorker(ILogger<ConsumerWorker> logger,
             IConfiguration configuration,
             IMessageProcessor messageProcessor,
             IRetryService retryService,
-            IDlqService dlqService)
+            IDlqService dlqService,
+            IIdempotencyService idempotencyService)
         {
             _logger = logger;
             _configuration = configuration;
             this.messageProcessor = messageProcessor;
             this.retryService = retryService;
             this.dlqService = dlqService;
+            this.idempotencyService = idempotencyService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -59,15 +63,48 @@ namespace UForwarderConsumer.Workers
 
                     if (deserializedMessage != null)
                     {
+                        if (string.IsNullOrEmpty(deserializedMessage.MessageId))
+                        {
+                            _logger.LogWarning("MessageId is null or empty. Skipping message: {Message}", result.Message.Value);
+                            consumer.Commit(result);
+                            continue;
+                        }
+
                         try
                         {
+                            if (await idempotencyService.IsAlreadyCompleted(deserializedMessage.MessageId))
+                            {
+                                _logger.LogInformation(
+                                    "Message {MessageId} has already been processed. Skipping.",
+                                    deserializedMessage.MessageId);
+
+                                consumer.Commit(result);
+                                continue;
+                            }
+
+                            if (!await idempotencyService.AcquireLockAsync(deserializedMessage.MessageId))
+                            {
+                                _logger.LogInformation(
+                                    "Message {MessageId} is already being processed.",
+                                    deserializedMessage.MessageId);
+
+                                consumer.Commit(result);
+                                continue;
+                            }
+
                             await messageProcessor.ProcessMessage(deserializedMessage);
+                            await this.idempotencyService.MarkCompletedAsync(deserializedMessage.MessageId);
 
                             consumer.Commit(result);
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Error processing message: {Message}", result.Message.Value);
+
+                            _logger.LogInformation("Releasing lock for message: {MessageId}", deserializedMessage.MessageId);
+                            await this.idempotencyService.ReleaseLockAsync(deserializedMessage.MessageId);
+                            _logger.LogInformation("Lock released for message: {MessageId}", deserializedMessage.MessageId);
+
                             if (deserializedMessage.RetryCount < MAX_RETRY_COUNT)
                             {
                                 await this.retryService.AddForRetry(deserializedMessage);
