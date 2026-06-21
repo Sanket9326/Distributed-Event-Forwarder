@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="RetryWorker/RetryWorker.csproj" Id="792068d8-b5f1-41b5-8e18-627419638121" />
+  <Project Path="TokenRefiller/TokenRefiller.csproj" Id="3fb8882b-e284-4bc5-95d8-138cdd0f5c7d" />
   <Project Path="UForwarderConsumer/UForwarderConsumer.csproj" />
 </Solution>

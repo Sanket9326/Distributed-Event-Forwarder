@@ -64,3 +64,19 @@ services:
       Kafka__Topic: orders.v1
       Kafka__DlqTopic: uforwarder.dlq
       Redis__ConnectionString: redis:6379
+
+  tokenrefiller:
+    build:
+      context: ./UForwarderConsumer/TokenRefiller
+      dockerfile: Dockerfile
+
+    container_name: tokenrefiller
+
+    depends_on:
+      - redis
+
+    environment:
+      Redis__ConnectionString: redis:6379
+      TokenRefill__RefillIntervalSeconds: 120
+      TokenRefill__MaxTokens: 10
+      TokenRefill__RefillAmount: 10

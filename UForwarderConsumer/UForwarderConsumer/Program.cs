@@ -6,6 +6,8 @@ using UForwarderConsumer.Services.IdempotencyService;
 using UForwarderConsumer.Services.IdempotencyService.Implementations;
 using UForwarderConsumer.Services.MessageProcessingService;
 using UForwarderConsumer.Services.MessageProcessingService.Implementations;
+using UForwarderConsumer.Services.RateLimitingService;
+using UForwarderConsumer.Services.RateLimitingService.Implementations;
 using UForwarderConsumer.Services.RetryService;
 using UForwarderConsumer.Services.RetryService.Implementations;
 using UForwarderConsumer.Workers;
@@ -36,6 +38,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(sp =>
 builder.Services.AddSingleton<IRetryService, RetryService>();
 builder.Services.AddSingleton<IDlqService, DlqService>();
 builder.Services.AddSingleton<IIdempotencyService, IdempotencyService>();
+builder.Services.AddSingleton<IRateLimitingService, RateLimitingService>();
 
 var host = builder.Build();
 host.Run();

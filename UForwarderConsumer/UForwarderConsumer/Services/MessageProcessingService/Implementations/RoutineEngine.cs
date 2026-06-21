@@ -16,9 +16,9 @@ namespace UForwarderConsumer.Services.MessageProcessingService.Implementations
             switch (eventType) {
 
                 case "order.created":
-                    return new List<string> { "Intventory", "Email" };
+                    return new List<string> { "Inventory", "Email" };
                 case "order.placed":
-                    return new List<string> { "Intventory", "Email" };
+                    return new List<string> { "Inventory", "Email" };
                 default:
                     return new List<string>();
             }
