@@ -1,31 +1,34 @@
 # 🚀 Distributed Event Forwarder
 
-A scalable and fault-tolerant distributed event processing platform inspired by modern asynchronous architectures. The system consumes events from Kafka, applies routing logic, and reliably forwards messages to downstream systems while supporting horizontal scaling, retries, dead-letter queues, idempotency, and distributed locking.
+A scalable and fault-tolerant distributed event processing platform inspired by modern asynchronous architectures. The system consumes events from Kafka, applies routing rules, enforces downstream rate limits, and reliably forwards messages while supporting retries, dead-letter queues, idempotency, and distributed locking.
 
 Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
 
 ---
 
-## ✨ Features
+# ✨ Features
 
 * Event-driven architecture
 * Kafka-based asynchronous messaging
 * Background worker consumers
-* Message routing engine
+* Dynamic routing engine
 * Horizontal scalability
-* Fault-tolerant processing
-* Retry mechanism with delayed retries
-* Dead Letter Queue (DLQ)
 * Redis-based distributed locking
 * Idempotent message processing
 * Duplicate message prevention
+* Retry mechanism with delayed retries
+* Dead Letter Queue (DLQ)
+* Redis Sorted Set retry scheduling
+* Token Bucket rate limiting
+* Automatic token refill worker
+* Atomic Redis Lua scripts
+* Fault-tolerant processing
 * Dockerized deployment
 * Extensible message pipeline
-* Clean separation of concerns
 
 ---
 
-## 🏗 Architecture
+# 🏗 Architecture
 
 ```
                 +----------------+
@@ -44,53 +47,76 @@ Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
                 | Forwarder Consumer    |
                 +----------------------+
                          |
-             +-----------+-----------+
-             |                       |
-             v                       v
-     +----------------+      +----------------+
-     | Distributed    |      | Idempotency    |
-     | Lock (Redis)   |      | Check (Redis)  |
-     +----------------+      +----------------+
-             |
-             v
-      +------------------+
-      | Message Processor|
-      +------------------+
-             |
-      +------+------+
-      |             |
-      v             v
- Success          Failure
-      |             |
- Commit Offset      |
-                    v
-           +----------------+
-           | Retry Queue     |
-           | (Redis Sorted   |
-           | Set)            |
-           +----------------+
-                    |
-                    v
-           +----------------+
-           | Retry Worker    |
-           +----------------+
-                    |
-                    v
-                Kafka Topic
-                    |
-                    v
-            Max Retries Exceeded
-                    |
-                    v
-            +----------------+
-            | Dead Letter     |
-            | Queue (DLQ)     |
-            +----------------+
+              +----------+----------+
+              |                     |
+              v                     v
+      +----------------+   +----------------+
+      | Distributed    |   | Idempotency    |
+      | Lock (Redis)   |   | Check (Redis)  |
+      +----------------+   +----------------+
+                         |
+                         v
+                +-------------------+
+                | Message Processor |
+                +-------------------+
+                         |
+                         v
+                +-------------------+
+                | Token Bucket Rate |
+                | Limiter (Redis)   |
+                +-------------------+
+                         |
+            +------------+------------+
+            |                         |
+            v                         v
+      Tokens Available          Tokens Exhausted
+            |                         |
+            |                         v
+            |                 Retry Queue (Redis)
+            |                         |
+            |                  Retry Worker
+            |                         |
+            |                     Kafka Topic
+            |
+            v
+     Downstream Systems
+ (Inventory, Email, etc.)
+            |
+            v
+         Success
+            |
+            v
+      Commit Offset
+
+After Max Retries
+            |
+            v
+      Kafka Dead Letter Queue
 ```
 
 ---
 
-## 🛠 Tech Stack
+# ⚙ Components
+
+## Consumer Worker
+
+Consumes messages from Kafka, performs idempotency checks, acquires distributed locks, and processes events.
+
+## Retry Worker
+
+Schedules delayed retries using Redis Sorted Sets and republishes messages back to Kafka.
+
+## Token Refiller Worker
+
+Refills token buckets periodically to enforce downstream service limits.
+
+## Rate Limiter
+
+Uses Redis and Lua scripts to atomically consume tokens for multiple destinations.
+
+---
+
+# 🛠 Tech Stack
 
 | Component            | Technology                |
 | -------------------- | ------------------------- |
@@ -98,170 +124,117 @@ Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
 | Framework            | .NET                      |
 | Messaging            | Apache Kafka              |
 | Cache & Coordination | Redis                     |
-| Containerization     | Docker                    |
-| Worker Processing    | Background Services       |
-| Serialization        | System.Text.Json          |
-| Architecture         | Event-Driven Architecture |
 | Retry Scheduling     | Redis Sorted Sets         |
 | Distributed Locking  | Redis                     |
-| Dead Letter Queue    | Kafka                     |
+| Rate Limiting        | Token Bucket Algorithm    |
+| Atomic Operations    | Redis Lua Scripts         |
+| Worker Processing    | Background Services       |
+| Serialization        | System.Text.Json          |
+| Containerization     | Docker                    |
+| Architecture         | Event-Driven Architecture |
 
 ---
 
-## 📂 Project Structure
+# Project Structure
 
 ```
 Distributed-Event-Forwarder
+
+├── UForwarderConsumer
 │
-├── Dtos/
+├── RetryWorker
 │
-├── Services/
-│   ├── Implementations/
-│   ├── IMessageProcessor.cs
-│   ├── IRetryService.cs
-│   ├── IDlqService.cs
-│   ├── IDistributedLockService.cs
-│   ├── IIdempotencyService.cs
+├── TokenRefiller
 │
-├── ConsumerWorker/
-├── RetryWorker/
+├── Dtos
 │
-├── Program.cs
-├── Worker.cs
-├── appsettings.json
-└── Dockerfile
+├── Services
+│     ├── DlqService
+│     ├── RetryService
+│     ├── IdempotencyService
+│     ├── RateLimitingService
+│     ├── DistributedLockService
+│     ├── MessageProcessingService
+│     └── RoutineEngine
+│
+├── Workers
+│
+├── Dockerfile
+│
+└── docker-compose
 ```
 
 ---
 
-## ⚙️ How It Works
-
-1. Producers publish events to Kafka topics.
-2. Consumer workers read events from Kafka.
-3. A Redis-based distributed lock ensures only one consumer processes a message.
-4. Idempotency checks prevent duplicate processing.
-5. Messages are deserialized and routed.
-6. Downstream forwarding operations are executed.
-7. On success, offsets are committed and message state is marked completed.
-8. On failure, messages are scheduled for retry using Redis Sorted Sets.
-9. Retry workers re-publish failed messages to Kafka when their retry time arrives.
-10. Messages exceeding the maximum retry count are sent to the Dead Letter Queue (DLQ).
-
----
-
-## Example Event
-
-```json
-{
-  "messageId": "12345",
-  "eventType": "OrderCreated",
-  "payload": {
-    "orderId": 1001,
-    "customerId": 567
-  }
-}
-```
-
----
-
-## Reliability Mechanisms
-
-### Retry Processing
-
-Failed messages are not lost. They are stored in Redis with a scheduled retry time and later re-published by a dedicated Retry Worker.
-
-### Dead Letter Queue (DLQ)
-
-Messages that exceed the maximum retry count are sent to a Kafka DLQ topic for investigation and replay.
-
-### Distributed Locking
-
-Redis locks prevent multiple consumers from processing the same message simultaneously in a scaled environment.
+# Reliability Mechanisms
 
 ### Idempotency
 
-Message states are stored in Redis to ensure duplicate messages are ignored and processing occurs exactly once from the application's perspective.
+Prevents duplicate processing.
+
+### Distributed Locking
+
+Ensures only one consumer processes a message.
+
+### Retry Queue
+
+Failed messages are scheduled in Redis Sorted Sets and retried later.
+
+### Dead Letter Queue
+
+Messages exceeding the retry limit are forwarded to Kafka DLQ topics.
+
+### Token Bucket Rate Limiting
+
+Prevents downstream systems from being overwhelmed.
+
+### Automatic Token Refill
+
+Dedicated worker replenishes tokens periodically.
+
+### At-Least-Once Delivery
+
+Kafka + retries guarantee reliable delivery.
 
 ---
 
-## Running Locally
+# Future Enhancements
 
-### Clone Repository
-
-```bash
-git clone https://github.com/Sanket9326/Distributed-Event-Forwarder.git
-```
-
-### Build
-
-```bash
-dotnet build
-```
-
-### Run
-
-```bash
-dotnet run
-```
-
----
-
-## Docker
-
-Build image:
-
-```bash
-docker build -t distributed-event-forwarder .
-```
-
-Run container:
-
-```bash
-docker run distributed-event-forwarder
-```
-
----
-
-## Future Enhancements
-
-* Metrics and monitoring
-* Prometheus integration
+* Prometheus metrics
 * OpenTelemetry tracing
-* Multiple Kafka topics
-* Dynamic routing rules
-* Dashboard and observability
-* Exponential backoff policies
 * Batch processing
+* Dynamic routing configuration
+* Exponential backoff
 * Circuit breaker support
+* Dashboard and observability
 * Event replay capability
+* Multi-topic support
+* Multiple consumer replicas
+* Kubernetes deployment
 
 ---
 
-## Design Principles
+# Design Principles
 
 * Scalability
+* Fault Tolerance
 * Reliability
 * Loose Coupling
-* Asynchronous Processing
 * Extensibility
 * High Throughput
-* Fault Tolerance
 * At-Least-Once Delivery
 * Idempotent Processing
+* Backpressure Control
+* Asynchronous Processing
 
 ---
 
-## Inspiration
+# Inspiration
 
-This project draws inspiration from modern event-driven systems and distributed messaging architectures used by companies such as:
+Inspired by distributed event-driven architectures used by:
 
 * Uber
 * Netflix
 * LinkedIn
 * Amazon
-
----
-
-## License
-
-MIT License
+* Stripe
