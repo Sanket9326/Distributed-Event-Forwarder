@@ -1,6 +1,6 @@
 # 🚀 Distributed Event Forwarder
 
-A scalable and fault-tolerant distributed event processing platform inspired by modern asynchronous architectures. The system consumes events from Kafka, applies routing rules, enforces downstream rate limits, and reliably forwards messages while supporting retries, dead-letter queues, idempotency, and distributed locking.
+A scalable and fault-tolerant distributed event processing platform inspired by modern asynchronous architectures. The system consumes events from Kafka, applies routing rules, enforces downstream rate limits, and reliably forwards messages while supporting retries, dead-letter queues, idempotency, distributed locking, and observability.
 
 Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
 
@@ -23,6 +23,8 @@ Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
 * Automatic token refill worker
 * Atomic Redis Lua scripts
 * Fault-tolerant processing
+* Prometheus metrics integration
+* Real-time observability
 * Dockerized deployment
 * Extensible message pipeline
 
@@ -30,7 +32,7 @@ Built with **.NET, Kafka, Redis, Docker, and Background Workers**.
 
 # 🏗 Architecture
 
-```
+```text
                 +----------------+
                 | Event Producer |
                 +----------------+
@@ -100,7 +102,7 @@ After Max Retries
 
 ## Consumer Worker
 
-Consumes messages from Kafka, performs idempotency checks, acquires distributed locks, and processes events.
+Consumes messages from Kafka, performs idempotency checks, acquires distributed locks, processes events, and exposes Prometheus metrics.
 
 ## Retry Worker
 
@@ -131,13 +133,14 @@ Uses Redis and Lua scripts to atomically consume tokens for multiple destination
 | Worker Processing    | Background Services       |
 | Serialization        | System.Text.Json          |
 | Containerization     | Docker                    |
+| Monitoring           | Prometheus                |
 | Architecture         | Event-Driven Architecture |
 
 ---
 
 # Project Structure
 
-```
+```text
 Distributed-Event-Forwarder
 
 ├── UForwarderConsumer
@@ -160,6 +163,8 @@ Distributed-Event-Forwarder
 ├── Workers
 │
 ├── Dockerfile
+│
+├── prometheus.yml
 │
 └── docker-compose
 ```
@@ -198,15 +203,39 @@ Kafka + retries guarantee reliable delivery.
 
 ---
 
+# 📊 Observability
+
+The platform exposes Prometheus-compatible metrics for operational monitoring and visibility.
+
+### Available Metrics
+
+* messages_processed_total
+* messages_failed_total
+* messages_retried_total
+* messages_dlq_total
+
+### Monitoring Flow
+
+```text
+UForwarder
+    ↓
+Prometheus
+    ↓
+Grafana
+```
+
+Prometheus continuously scrapes application metrics while Grafana can be used to build real-time dashboards and visualize system behavior.
+
+---
+
 # Future Enhancements
 
-* Prometheus metrics
 * OpenTelemetry tracing
 * Batch processing
 * Dynamic routing configuration
 * Exponential backoff
 * Circuit breaker support
-* Dashboard and observability
+* Grafana dashboards
 * Event replay capability
 * Multi-topic support
 * Multiple consumer replicas
