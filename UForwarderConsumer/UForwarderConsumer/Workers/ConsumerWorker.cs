@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using System.Text.Json;
 using UForwarderConsumer.Dtos;
+using UForwarderConsumer.Metrics;
 using UForwarderConsumer.Services.DlqService;
 using UForwarderConsumer.Services.IdempotencyService;
 using UForwarderConsumer.Services.MessageProcessingService;
@@ -96,10 +97,12 @@ namespace UForwarderConsumer.Workers
                             await this.idempotencyService.MarkCompletedAsync(deserializedMessage.MessageId);
 
                             consumer.Commit(result);
+                            MetricsRegistry.Success();
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Error processing message: {Message}", result.Message.Value);
+                            MetricsRegistry.Failure();
 
                             _logger.LogInformation("Releasing lock for message: {MessageId}", deserializedMessage.MessageId);
                             await this.idempotencyService.ReleaseLockAsync(deserializedMessage.MessageId);
@@ -108,12 +111,14 @@ namespace UForwarderConsumer.Workers
                             if (deserializedMessage.RetryCount < MAX_RETRY_COUNT)
                             {
                                 await this.retryService.AddForRetry(deserializedMessage);
+                                MetricsRegistry.Retry();
                                 _logger.LogInformation("Message will be retried. Current retry count: {RetryCount}", deserializedMessage.RetryCount);
                             }
                             else
                             {
                                 _logger.LogWarning("Max retry count reached for message: {Message}. It will be added to DLQ.", result.Message.Value);
                                 await this.dlqService.AddToDLq(deserializedMessage);
+                                MetricsRegistry.Dlq();
                             }
 
                             consumer.Commit(result);
