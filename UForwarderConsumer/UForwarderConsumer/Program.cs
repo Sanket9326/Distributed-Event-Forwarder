@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using Prometheus;
 using StackExchange.Redis;
 using UForwarderConsumer.Services.DlqService;
 using UForwarderConsumer.Services.DlqService.Implementations;
@@ -41,4 +42,10 @@ builder.Services.AddSingleton<IIdempotencyService, IdempotencyService>();
 builder.Services.AddSingleton<IRateLimitingService, RateLimitingService>();
 
 var host = builder.Build();
+
+var metricServer = new KestrelMetricServer(
+    port: 9091);
+
+metricServer.Start();
+
 host.Run();
